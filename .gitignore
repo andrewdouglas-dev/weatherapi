@@ -2,3 +2,4 @@
 .vscode/
 .todo
 target/
+dependency-reduced-pom.xml

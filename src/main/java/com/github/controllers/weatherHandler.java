@@ -11,9 +11,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.github.utilities.Env;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+
+import redis.clients.jedis.RedisClient;
 
 public class weatherHandler implements HttpHandler{
 
@@ -28,7 +29,7 @@ public class weatherHandler implements HttpHandler{
         if (exchange.getRequestMethod().equals("GET") && exchange.getRequestURI().getPath().startsWith("/api/v1/weather/")) {
             getWeather(exchange);
         } else {
-            sendResponse(exchange, 400, "Invalid Request send request to /api/v1/weather/<5 digit ZipCode>");
+            sendResponse(exchange, 404, "Invalid Request. Send request to /api/v1/weather/<5 digit ZipCode>");
         }
     }
 
@@ -36,25 +37,41 @@ public class weatherHandler implements HttpHandler{
         Matcher match = getPattern.matcher(exchange.getRequestURI().getPath());
         
         if (!match.matches()) {
-            System.out.println("Invalid Zipcode");
+
+            sendResponse(exchange, 400, "Invalid Zipcode.");
+
             return;
         }
 
         String path = exchange.getRequestURI().getPath();
         String zipCode = path.substring(path.length()-5);
 
-        //TODO
         //Create Redis Cache to hold results
-        //Check Cache before querying the API
 
-        //send Request to Weather API
-        sendWeatherRequest(exchange, zipCode);
+        try (RedisClient redis = RedisClient.create("redis://weather-redis:6379")) {
+            String redisMatch = redis.get("weather:"+zipCode);
+
+            //Check Cache before querying the API
+            if (redisMatch != null) {
+                //send Request to Weather API
+                logger.info("Pulled from Redis!");
+
+                sendResponse(exchange, 200, redisMatch);
+            } else {
+
+                logger.info("Pulled from Weather API");
+
+                sendWeatherRequest(exchange, zipCode, redis);
+            }
+        } catch (Exception e) {
+            logger.severe("There was an issue");
+        }
     }
 
-    private void sendWeatherRequest(HttpExchange exchange, String zipCode) {
+    private void sendWeatherRequest(HttpExchange exchange, String zipCode, RedisClient redis) {
         HttpClient weatherClient = HttpClient.newBuilder().build();
         HttpRequest weatherRequest = HttpRequest.newBuilder()
-                    .uri(URI.create("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/" + zipCode + "?key="+ Env.get("WEATHER_API_KEY")))
+                    .uri(URI.create("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/" + zipCode + "?key="+ System.getenv("WEATHER_API_KEY")))
                     .GET()
                     .build();
 
@@ -62,7 +79,14 @@ public class weatherHandler implements HttpHandler{
             
             HttpResponse<String> weatherResponse = weatherClient.send(weatherRequest, HttpResponse.BodyHandlers.ofString());
 
-            sendResponse(exchange, weatherResponse.statusCode(), weatherResponse.body());
+            String respBody = weatherResponse.body();
+            int respCode = weatherResponse.statusCode();
+
+            if (respCode == 200) {
+                redis.setex("weather:"+zipCode, 300, respBody);
+            }
+
+            sendResponse(exchange, respCode,respBody);
 
         } catch (IOException e) {
             // TODO Auto-generated catch block
@@ -73,14 +97,18 @@ public class weatherHandler implements HttpHandler{
         }
     }
 
-    private void sendResponse(HttpExchange exchange, int statusCode, String body) throws IOException {
+    private void sendResponse(HttpExchange exchange, int statusCode, String body) {
         exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(statusCode, body.getBytes(StandardCharsets.UTF_8).length);
-        
-        try (OutputStream os = exchange.getResponseBody()) {
+        try {
+            //setting response headers
+            exchange.sendResponseHeaders(statusCode, body.getBytes(StandardCharsets.UTF_8).length);
+
+            //writing body to response
+            OutputStream os = exchange.getResponseBody();
+
             os.write(body.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            logger.severe("Error occured writing response: " + e);
+        } catch (IOException ex) {
+            logger.severe("Error attempting to write data.");
         }
     }
 }
