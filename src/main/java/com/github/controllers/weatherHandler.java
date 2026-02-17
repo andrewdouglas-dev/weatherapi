@@ -7,6 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,7 +25,7 @@ public class weatherHandler implements HttpHandler{
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         
-        logger.info("Request received");
+        logger.info("Inbound request received.");
 
         if (exchange.getRequestMethod().equals("GET") && exchange.getRequestURI().getPath().startsWith("/api/v1/weather/")) {
             getWeather(exchange);
@@ -47,7 +48,6 @@ public class weatherHandler implements HttpHandler{
         String zipCode = path.substring(path.length()-5);
 
         //Create Redis Cache to hold results
-
         try (RedisClient redis = RedisClient.create("redis://weather-redis:6379")) {
             String redisMatch = redis.get("weather:"+zipCode);
 
@@ -64,7 +64,9 @@ public class weatherHandler implements HttpHandler{
                 sendWeatherRequest(exchange, zipCode, redis);
             }
         } catch (Exception e) {
-            logger.severe("There was an issue");
+            logger.log(Level.SEVERE, "Error connecting to Redis", e);
+
+            sendWeatherRequest(exchange, zipCode, null);
         }
     }
 
@@ -82,23 +84,23 @@ public class weatherHandler implements HttpHandler{
             String respBody = weatherResponse.body();
             int respCode = weatherResponse.statusCode();
 
-            if (respCode == 200) {
+            if (respCode == 200 && redis != null) {
                 redis.setex("weather:"+zipCode, 300, respBody);
             }
 
-            sendResponse(exchange, respCode,respBody);
+            sendResponse(exchange, respCode, respBody);
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             // TODO Auto-generated catch block
-            logger.severe("Error occured attempting to retrieve data from visual crossing: " + e);
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            logger.severe("Error occured attempting to retrieve data from visual crossing: " + e);
+            logger.log(Level.SEVERE, "Error occured attempting to retrieve data from visual crossing", e);
+
+            sendResponse(exchange, 500, null);
         }
     }
 
     private void sendResponse(HttpExchange exchange, int statusCode, String body) {
         exchange.getResponseHeaders().set("Content-Type", "application/json");
+        
         try (OutputStream os = exchange.getResponseBody()) {
             //setting response headers
             exchange.sendResponseHeaders(statusCode, body.getBytes(StandardCharsets.UTF_8).length);
