@@ -99,14 +99,13 @@ public class weatherHandler implements HttpHandler{
 
     private void sendResponse(HttpExchange exchange, int statusCode, String body) {
         exchange.getResponseHeaders().set("Content-Type", "application/json");
-        try {
+        try (OutputStream os = exchange.getResponseBody()) {
             //setting response headers
             exchange.sendResponseHeaders(statusCode, body.getBytes(StandardCharsets.UTF_8).length);
 
             //writing body to response
-            OutputStream os = exchange.getResponseBody();
-
             os.write(body.getBytes(StandardCharsets.UTF_8));
+
         } catch (IOException ex) {
             logger.severe("Error attempting to write data.");
         }
