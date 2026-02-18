@@ -28,27 +28,30 @@ public class weatherHandler implements HttpHandler{
         logger.info("Inbound request received.");
 
         if (exchange.getRequestMethod().equals("GET")) {
-            getWeather(exchange);
+
+            String path = exchange.getRequestURI().getPath();
+            String zipCode = path.substring(path.length()-5);
+
+            getWeather(exchange, path, zipCode);
         } else {
             sendResponse(exchange, 405, "Invalid Request. Send <GET> request to <resource>.");
         }
     }
 
-    public void getWeather(HttpExchange exchange) {
-        Matcher match = getPattern.matcher(exchange.getRequestURI().getPath());
-        
-        if (!match.matches()) {
-
-            sendResponse(exchange, 400, "Invalid Zipcode.");
-
-            return;
-        }
-
-        String path = exchange.getRequestURI().getPath();
-        String zipCode = path.substring(path.length()-5);
-
+    public void getWeather(HttpExchange exchange, String path, String zipCode) {
         //Create Redis Cache to hold results
         try (RedisClient redis = RedisClient.create("redis://weather-redis:6379")) {
+            
+            //Validate API Request sent with valid Zipcode
+            Matcher match = getPattern.matcher(path);
+        
+            if (!match.matches()) {
+
+                sendResponse(exchange, 400, "Invalid Zipcode.");
+
+                return;
+            }
+
             String redisMatch = redis.get("weather:"+zipCode);
 
             //Check Cache before querying the API
