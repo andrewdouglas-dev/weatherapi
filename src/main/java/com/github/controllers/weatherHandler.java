@@ -27,10 +27,10 @@ public class weatherHandler implements HttpHandler{
         
         logger.info("Inbound request received.");
 
-        if (exchange.getRequestMethod().equals("GET") && exchange.getRequestURI().getPath().startsWith("/api/v1/weather/")) {
+        if (exchange.getRequestMethod().equals("GET")) {
             getWeather(exchange);
         } else {
-            sendResponse(exchange, 404, "Invalid Request. Send request to /api/v1/weather/<5 digit ZipCode>");
+            sendResponse(exchange, 405, "Invalid Request. Send <GET> request to <resource>.");
         }
     }
 
@@ -109,7 +109,7 @@ public class weatherHandler implements HttpHandler{
             os.write(body.getBytes(StandardCharsets.UTF_8));
 
         } catch (IOException ex) {
-            logger.severe("Error attempting to write data.");
+            logger.log(Level.SEVERE, "Error attempting to write data.", ex);
         }
     }
 }
