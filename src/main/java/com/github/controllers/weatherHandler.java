@@ -131,7 +131,7 @@ public class weatherHandler implements HttpHandler{
 
         long counter = redis.incr(key);
 
-        if (counter == Integer.parseInt(System.getenv("RATE_LIMIT_MAX"))) {
+        if (counter == 1) {
             redis.expire(key, Long.parseLong(System.getenv("RATE_LIMIT_WINDOW")));
         }
 
