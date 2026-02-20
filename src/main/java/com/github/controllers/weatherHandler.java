@@ -7,6 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -41,7 +42,15 @@ public class weatherHandler implements HttpHandler{
     public void getWeather(HttpExchange exchange, String path, String zipCode) {
         //Create Redis Cache to hold results
         try (RedisClient redis = RedisClient.create("redis://weather-redis:6379")) {
+            //Rate Limit
+
+            String clientId = exchange.getRemoteAddress().getAddress().getHostAddress();
             
+            if (checkRateLimit(redis, clientId)) {
+                sendResponse(exchange, 429, "");
+                return;
+            }
+
             //Validate API Request sent with valid Zipcode
             Matcher match = getPattern.matcher(path);
         
@@ -114,5 +123,18 @@ public class weatherHandler implements HttpHandler{
         } catch (IOException ex) {
             logger.log(Level.SEVERE, "Error attempting to write data.", ex);
         }
+    }
+
+    private boolean checkRateLimit(RedisClient redis, String clientID) {
+        long currentTimestamp = Instant.now().getEpochSecond() / Long.parseLong(System.getenv("RATE_LIMIT_WINDOW"));
+        String key = String.format("ratelimit:$s:$d", clientID, currentTimestamp);
+
+        long counter = redis.incr(key);
+
+        if (counter == Integer.parseInt(System.getenv("RATE_LIMIT_MAX"))) {
+            redis.expire(key, Long.parseLong(System.getenv("RATE_LIMIT_WINDOW")));
+        }
+
+        return counter > Integer.parseInt(System.getenv("RATE_LIMIT_MAX"));
     }
 }
