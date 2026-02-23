@@ -20,7 +20,7 @@ import redis.clients.jedis.RedisClient;
 
 public class weatherHandler implements HttpHandler{
 
-    private final Pattern getPattern = Pattern.compile("/api/v1/weather/\\w{5}");
+    private final Pattern zipCodePattern = Pattern.compile("\\d{5}");
     private final static Logger logger = Logger.getLogger(weatherHandler.class.getName());
 
     @Override
@@ -29,17 +29,32 @@ public class weatherHandler implements HttpHandler{
         logger.info("Inbound request received.");
 
         if (exchange.getRequestMethod().equals("GET")) {
-
-            String path = exchange.getRequestURI().getPath();
-            String zipCode = path.substring(path.length()-5);
-
-            getWeather(exchange, path, zipCode);
+            getWeather(exchange);
         } else {
             sendResponse(exchange, 405, "Invalid Request. Send <GET> request to <resource>.");
         }
     }
 
-    public void getWeather(HttpExchange exchange, String path, String zipCode) {
+    public void getWeather(HttpExchange exchange) {
+        //Refine Path Segments
+        String[] pathSegments = parseURI(exchange.getRequestURI().getPath());
+        
+        if (pathSegments.length < 4 || pathSegments.length > 6) {
+            sendResponse(exchange, 400, "Request sent with incorrect parameters.");
+
+            return;
+        }
+
+        String zipCode = pathSegments[3];
+
+        //Validate API Request sent with valid Zipcode
+        //Validate Date Times /////////////TO DO////////////
+        if (!isMatch(exchange, zipCodePattern, zipCode)) {
+            return;
+        }        
+
+        boolean hasDates = pathSegments.length > 4;
+
         //Create Redis Cache to hold results
         try (RedisClient redis = RedisClient.create("redis://weather-redis:6379")) {
             //Rate Limit
@@ -51,17 +66,18 @@ public class weatherHandler implements HttpHandler{
                 return;
             }
 
-            //Validate API Request sent with valid Zipcode
-            Matcher match = getPattern.matcher(path);
-        
-            if (!match.matches()) {
+            StringBuilder redisWeatherMatch = new StringBuilder("weather:").append(zipCode);
 
-                sendResponse(exchange, 400, "Invalid Zipcode.");
-
-                return;
+            if (hasDates) {
+                if (pathSegments.length > 5) {
+                    redisWeatherMatch.append(":").append(pathSegments[4]);
+                }
+                if (pathSegments.length == 6) {
+                    redisWeatherMatch.append(":").append(pathSegments[5]);
+                }
             }
 
-            String redisMatch = redis.get("weather:"+zipCode);
+            String redisMatch = redis.get(redisWeatherMatch.toString());
 
             //Check Cache before querying the API
             if (redisMatch != null) {
@@ -73,19 +89,31 @@ public class weatherHandler implements HttpHandler{
 
                 logger.info("Pulled from Weather API");
 
-                sendWeatherRequest(exchange, zipCode, redis);
+                sendWeatherRequest(exchange, pathSegments, redis, redisWeatherMatch);
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error connecting to Redis", e);
 
-            sendWeatherRequest(exchange, zipCode, null);
+            sendWeatherRequest(exchange, pathSegments, null, null);
         }
     }
 
-    private void sendWeatherRequest(HttpExchange exchange, String zipCode, RedisClient redis) {
+    private void sendWeatherRequest(HttpExchange exchange, String[] pathSegments, RedisClient redis, StringBuilder cacheWeatherAddress) {
+        String parameters;
+
+        if (cacheWeatherAddress.toString().startsWith("weather:")) {
+            parameters = cacheWeatherAddress.substring(8).replaceAll(":", "/");
+        } else {
+            parameters = cacheWeatherAddress.toString().replaceAll(":", "/");
+        }
+
+        StringBuilder urlBuilder = new StringBuilder("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/").append(parameters);
+        
+        urlBuilder.append("?key=").append(System.getenv("WEATHER_API_KEY"));
+
         HttpClient weatherClient = HttpClient.newBuilder().build();
         HttpRequest weatherRequest = HttpRequest.newBuilder()
-                    .uri(URI.create("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/" + zipCode + "?key="+ System.getenv("WEATHER_API_KEY")))
+                    .uri(URI.create(urlBuilder.toString()))
                     .GET()
                     .build();
 
@@ -97,13 +125,15 @@ public class weatherHandler implements HttpHandler{
             int respCode = weatherResponse.statusCode();
 
             if (respCode == 200 && redis != null) {
-                redis.setex("weather:"+zipCode, 300, respBody);
+                redis.setex(cacheWeatherAddress.toString(), 300, respBody);
             }
 
             sendResponse(exchange, respCode, respBody);
 
         } catch (Exception e) {
-            // TODO Auto-generated catch block
+
+            // TODO Add Automatic Retry
+            
             logger.log(Level.SEVERE, "Error occured attempting to retrieve data from visual crossing", e);
 
             sendResponse(exchange, 500, null);
@@ -136,5 +166,31 @@ public class weatherHandler implements HttpHandler{
         }
 
         return counter > Integer.parseInt(System.getenv("RATE_LIMIT_MAX"));
+    }
+
+    private String[] parseURI(String path) {
+        if (path == null || path.isEmpty()) {
+            path = "/";
+        }
+
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+
+        if (path.endsWith("/")) {
+            path = path.substring(0,path.length()-1);
+        }
+
+        return path.isEmpty() ? new String[0] : path.substring(1).split("/");
+    }
+
+    private boolean isMatch(HttpExchange exchange, Pattern patternToMatch, String value) {
+        Matcher match = patternToMatch.matcher(value);
+    
+        if (!match.matches()) {
+            sendResponse(exchange, 400, "Invalid Zipcode.");
+        }
+
+        return match.matches();
     }
 }
