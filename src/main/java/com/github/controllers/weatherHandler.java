@@ -48,12 +48,25 @@ public class weatherHandler implements HttpHandler{
         String zipCode = pathSegments[3];
 
         //Validate API Request sent with valid Zipcode
-        //Validate Date Times /////////////TO DO////////////
+
+        /////////////TO DO////////////
+        //Validate Date Times 
         if (!isMatch(exchange, zipCodePattern, zipCode)) {
             return;
         }        
 
         boolean hasDates = pathSegments.length > 4;
+
+        StringBuilder redisWeatherMatch = new StringBuilder("weather:").append(zipCode);
+
+        if (hasDates) {
+            if (pathSegments.length > 5) {
+                redisWeatherMatch.append(":").append(pathSegments[4]);
+            }
+            if (pathSegments.length == 6) {
+                redisWeatherMatch.append(":").append(pathSegments[5]);
+            }
+        }
 
         //Create Redis Cache to hold results
         try (RedisClient redis = RedisClient.create("redis://weather-redis:6379")) {
@@ -64,17 +77,6 @@ public class weatherHandler implements HttpHandler{
             if (checkRateLimit(redis, clientId)) {
                 sendResponse(exchange, 429, "");
                 return;
-            }
-
-            StringBuilder redisWeatherMatch = new StringBuilder("weather:").append(zipCode);
-
-            if (hasDates) {
-                if (pathSegments.length > 5) {
-                    redisWeatherMatch.append(":").append(pathSegments[4]);
-                }
-                if (pathSegments.length == 6) {
-                    redisWeatherMatch.append(":").append(pathSegments[5]);
-                }
             }
 
             String redisMatch = redis.get(redisWeatherMatch.toString());
@@ -89,16 +91,16 @@ public class weatherHandler implements HttpHandler{
 
                 logger.info("Pulled from Weather API");
 
-                sendWeatherRequest(exchange, pathSegments, redis, redisWeatherMatch);
+                sendWeatherRequest(exchange,  redis, redisWeatherMatch);
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error connecting to Redis", e);
 
-            sendWeatherRequest(exchange, pathSegments, null, null);
+            sendWeatherRequest(exchange, null, redisWeatherMatch);
         }
     }
 
-    private void sendWeatherRequest(HttpExchange exchange, String[] pathSegments, RedisClient redis, StringBuilder cacheWeatherAddress) {
+    private void sendWeatherRequest(HttpExchange exchange, RedisClient redis, StringBuilder cacheWeatherAddress) {
         String parameters;
 
         if (cacheWeatherAddress.toString().startsWith("weather:")) {
