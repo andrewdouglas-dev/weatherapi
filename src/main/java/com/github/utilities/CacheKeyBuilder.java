@@ -11,7 +11,7 @@ public class CacheKeyBuilder {
         if (startDate.isPresent()) {
             cacheKeyBuilder.append("/").append(startDate.get());
         }
-        if (endDate.isPresent()) {
+        if (startDate.isPresent() && endDate.isPresent()) {
             cacheKeyBuilder.append("/").append(endDate.get());
         }
 
