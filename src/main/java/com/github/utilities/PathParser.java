@@ -8,6 +8,12 @@ import java.util.regex.Pattern;
 public class PathParser {
     private PathParser() {}
 
+    /**
+    * Returns String[] containing elements from Path URI.
+    *
+    * @param  Path  URI path to breakdown.
+    * @return String[] containing elements of URI path that were seperated by "/"
+    */
     public static String[] parseURI(String path) {
         if (path == null || path.isEmpty()) {
             path = "/";
@@ -24,6 +30,12 @@ public class PathParser {
         return path.isEmpty() ? new String[0] : path.substring(1).split("/");
     }
 
+    /**
+    * Returns true/false if path is valid.
+    *
+    * @param  PathSegments  String[] representing the URI path for the request
+    * @return boolean representing if path is valid
+    */
     public static boolean isValidWeatherPath(String[] pathSegments) {
         return 4 <= pathSegments.length && pathSegments.length <= 6;
     }
@@ -33,7 +45,7 @@ public class PathParser {
     * Returns true/false if provided zipCode is a valid U.S. zipcode.
     *
     * @param  zipCode  zipcode to validate
-    * @return      boolean representing if zipCode is valid or not
+    * @return boolean representing if zipCode is valid
     */
     public static boolean isValidZipcode(String zipCode) {
         Pattern zipCodePattern = Pattern.compile("\\d{5}");
@@ -41,7 +53,13 @@ public class PathParser {
 
         return match.matches();
     }
-
+    
+    /**
+    * Returns true/false if provided Date is a valid date in yyyy-mm-dd format.
+    *
+    * @param  date  String representating date to validate
+    * @return boolean representing if date is valid
+    */
     public static boolean isValidDate(String date) {
         try {
             LocalDate.parse(date);
@@ -51,6 +69,12 @@ public class PathParser {
         }
     }
 
+    /**
+    * Returns Optional of String representing zipCode extracted from provided String[].
+    *
+    * @param  pathSegments  String[] containing path segments from URI
+    * @return Optional of String, either empty or optional contains valid US zipCode
+    */
     public static Optional<String> extractZipCode(String[] pathSegments) {
         if (pathSegments.length < 4 || !isValidZipcode(pathSegments[3])) {
             return Optional.empty();
@@ -59,6 +83,12 @@ public class PathParser {
         return Optional.of(pathSegments[3]);
     }
 
+    /**
+    * Returns Optional of String representing Start Date extracted from provided String[].
+    *
+    * @param  pathSegments  String[] containing path segments from URI
+    * @return Optional of String, either empty or contains a valid start date
+    */
     public static Optional<String> extractStartDate(String[] pathSegments) {
         if (pathSegments.length < 5 && !isValidDate(pathSegments[4])) {
             return Optional.empty();
@@ -67,6 +97,12 @@ public class PathParser {
         return Optional.of(pathSegments[4]);
     }
 
+    /**
+    * Returns Optional of String representing End Date extracted from provided String[].
+    *
+    * @param  pathSegments  String[] containing path segments from URI
+    * @return Optional of String, either empty or contains a valid end date
+    */
     public static Optional<String> extractEndDate(String[] pathSegments) {
         if (pathSegments.length < 6 && !isValidDate(pathSegments[5])) {
             return Optional.empty();

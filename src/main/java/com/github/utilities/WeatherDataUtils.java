@@ -18,6 +18,12 @@ public class WeatherDataUtils {
 
     private WeatherDataUtils() {}
 
+    /**
+    * Builds URL for API request to Visual Crossing API.
+    *
+    * @param  cacheKey  cache key to convert for use in the URL
+    * @return String containing for Visual Crossing request 
+    */
     private static String buildURL(String cacheKey) {
         return new StringBuilder("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/")
             .append(CacheKeyBuilder.buildPathFromKey(cacheKey))
@@ -25,6 +31,13 @@ public class WeatherDataUtils {
             .append(System.getenv("WEATHER_API_KEY")).toString();
     }
 
+    /**
+    * Sends request to Visual Crossings weather API.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param  cacheKey  cache key to convert for use in the URL
+    * @return Optional of HTTP response, non-empty if successfully request to Visual Crossing 
+    */
     public static Optional<HttpResponse<String>> returnWeatherResponse(HttpExchange exchange, String cacheKey) {
         HttpClient weatherClient = HttpClient.newBuilder().build();
         HttpRequest weatherRequest = HttpRequest.newBuilder()
@@ -42,6 +55,13 @@ public class WeatherDataUtils {
         }
     }
 
+    /**
+    * Sends request to Visual Crossings weather API and stores response in cache if successful.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param redis  Redis client used for caching result with TTL in Redis
+    * @param  cacheKey  cache key to convert for use in the URL
+    */
     public static void sendWeatherRequest(HttpExchange exchange, RedisClient redis, String cacheKey) {
         Optional<HttpResponse<String>> response = returnWeatherResponse(exchange, cacheKey);
 

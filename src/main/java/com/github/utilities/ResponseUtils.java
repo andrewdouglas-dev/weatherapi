@@ -13,6 +13,13 @@ public class ResponseUtils {
 
     private final static Logger logger = Logger.getLogger(ResponseUtils.class.getName());
 
+    /**
+    * Sends a OK (200) response to the client, with a provided body.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param body String body to attach to response
+    * 
+    */
     public static void returnOK(HttpExchange exchange, String body) {
         if (body == null) {
             body = "{}";
@@ -21,26 +28,67 @@ public class ResponseUtils {
         sendResponseWithBody(exchange, 200, body);
     }
     
+    /**
+    * Sends a Bad Request (400) response to the client.
+    *
+    * @param  exchange  the HTTP exchange to send the response through
+    * 
+    */
     public static void returnBadRequest(HttpExchange exchange) {
         sendResponseNoBody(exchange, 400);
     }
 
+    /**
+    * Sends a Method Not Allowed (405) response to the client.
+    *
+    * @param  exchange  the HTTP exchange to send the response through
+    * 
+    */
     public static void returnMethodNotAllowed(HttpExchange exchange) {
         sendResponseNoBody(exchange, 405);
     }
 
+    /**
+    * Sends a Too Many Requests (429) response to the client.
+    *
+    * @param  exchange  the HTTP exchange to send the response through
+    * 
+    */
     public static void returnTooManyRequests(HttpExchange exchange) {
         sendResponseNoBody(exchange, 429);
     }
 
+    /**
+    * Sends a Server Error (500) response to the client, with a provided body.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param error String error body to attach to response
+    * 
+    */
     public static void returnServerError(HttpExchange exchange, String error) {
         sendErrorResponse(exchange, 500, error);
     }
 
+    /**
+    * Sends a custom response to the client, with a provided status code & body.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param statusCode Integer representing custom status code
+    * @param body String body to attach to response
+    * 
+    */
     public static void returnCustom(HttpExchange exchange, int statusCode, String body) {
         sendResponseWithBody(exchange, statusCode, body);
     }
 
+    /**
+    * Sends an error response to the client, with a provided status code & body.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param statusCode Integer representing custom status code
+    * @param error String body to attach to response
+    * 
+    */
     private static void sendErrorResponse(HttpExchange exchange, int statusCode, String error) {
         String json = error == null || error.isBlank() 
             ? "{}"
@@ -49,6 +97,13 @@ public class ResponseUtils {
         sendResponseWithBody(exchange, statusCode, json);
     }
 
+    /**
+    * Sends a response to the client, with a provided status code & no body.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param statusCode Integer representing custom status code
+    * 
+    */
     private static void sendResponseNoBody(HttpExchange exchange, int statusCode) {
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         
@@ -61,6 +116,14 @@ public class ResponseUtils {
         }
     }
 
+    /**
+    * Sends a response to the client, with a provided status code & body.
+    *
+    * @param exchange  the HTTP exchange to send the response through
+    * @param statusCode Integer representing custom status code
+    * @param body String body to attach to response
+    * 
+    */
     private static void sendResponseWithBody(HttpExchange exchange, int statusCode, String body) {
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         

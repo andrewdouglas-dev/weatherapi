@@ -49,7 +49,7 @@ public class WeatherHandler implements HttpHandler{
             return;
         }
         
-        String cacheKey = CacheKeyBuilder.buildKey(zipCode, PathParser.extractStartDate(pathSegments), PathParser.extractEndDate(pathSegments));
+        String cacheKey = CacheKeyBuilder.buildKey(zipCode.get(), PathParser.extractStartDate(pathSegments), PathParser.extractEndDate(pathSegments));
 
         String clientId = exchange.getRemoteAddress().getAddress().getHostAddress();
 
