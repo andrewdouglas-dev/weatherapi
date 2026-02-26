@@ -6,13 +6,13 @@ public class CacheKeyBuilder {
     private CacheKeyBuilder() {}
 
     public static String buildKey(Optional<String> zipCode, Optional<String> startDate, Optional<String> endDate) {
-        StringBuilder cacheKeyBuilder = new StringBuilder("weather:").append(zipCode.toString());
+        StringBuilder cacheKeyBuilder = new StringBuilder("weather:").append(zipCode.get());
 
         if (startDate.isPresent()) {
-            cacheKeyBuilder.append(startDate.toString());
+            cacheKeyBuilder.append("/").append(startDate.get());
         }
         if (endDate.isPresent()) {
-            cacheKeyBuilder.append(endDate.toString());
+            cacheKeyBuilder.append("/").append(endDate.get());
         }
 
         return cacheKeyBuilder.toString();

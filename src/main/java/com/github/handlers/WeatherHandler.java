@@ -2,6 +2,7 @@ package com.github.handlers;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.github.utilities.CacheKeyBuilder;
@@ -19,7 +20,15 @@ public class WeatherHandler implements HttpHandler{
     private final RedisClient redis;
 
     public WeatherHandler() {
-        this.redis = RedisClient.create("redis://weather-redis:6379");
+        RedisClient client = null;
+
+        try {
+            client = RedisClient.create("redis://weather-redis:6379");
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to initialize Redis – proceeding without cache/rate-limit", e);
+        }
+
+        this.redis = client;
     }
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -43,23 +52,26 @@ public class WeatherHandler implements HttpHandler{
         String cacheKey = CacheKeyBuilder.buildKey(zipCode, PathParser.extractStartDate(pathSegments), PathParser.extractEndDate(pathSegments));
 
         String clientId = exchange.getRemoteAddress().getAddress().getHostAddress();
+
+        if (redis != null) {
             
-        if (RateLimiter.isExceeded(redis, clientId)) {
-            ResponseUtils.returnTooManyRequests(exchange);
-            return;
+            if (RateLimiter.isExceeded(redis, clientId)) {
+                ResponseUtils.returnTooManyRequests(exchange);
+                return;
+            }
+
+            String redisMatch = redis.get(cacheKey);
+
+            if (redisMatch != null) {
+                logger.info("Pulled from Redis!");
+
+                ResponseUtils.returnOK(exchange, redisMatch);
+                return;
+            }
         }
 
-        String redisMatch = redis.get(cacheKey);
+        logger.info("Pulled from Weather API");
 
-        if (redisMatch != null) {
-            logger.info("Pulled from Redis!");
-
-            ResponseUtils.returnOK(exchange, redisMatch);
-        } else {
-
-            logger.info("Pulled from Weather API");
-
-            WeatherDataUtils.sendWeatherRequest(exchange,  redis, cacheKey);
-        }
+        WeatherDataUtils.sendWeatherRequest(exchange, redis, cacheKey);
     }
 }
