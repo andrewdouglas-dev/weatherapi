@@ -1,24 +1,24 @@
 package com.github.utilities;
 
+import java.util.Optional;
+
 public class CacheKeyBuilder {
-    public static String forWeather(String[] pathSegments) {
-        boolean hasDates = pathSegments.length > 4;
+    private CacheKeyBuilder() {}
 
-        StringBuilder cacheKeyBuilder = new StringBuilder("weather:").append(pathSegments[3]);
+    public static String buildKey(Optional<String> zipCode, Optional<String> startDate, Optional<String> endDate) {
+        StringBuilder cacheKeyBuilder = new StringBuilder("weather:").append(zipCode.toString());
 
-        if (hasDates) {
-            if (pathSegments.length > 5) {
-                cacheKeyBuilder.append(":").append(pathSegments[4]);
-            }
-            if (pathSegments.length == 6) {
-                cacheKeyBuilder.append(":").append(pathSegments[5]);
-            }
+        if (startDate.isPresent()) {
+            cacheKeyBuilder.append(startDate.toString());
+        }
+        if (endDate.isPresent()) {
+            cacheKeyBuilder.append(endDate.toString());
         }
 
         return cacheKeyBuilder.toString();
     }
 
-    public static String keyToPath(String cacheKey) {
+    public static String buildPathFromKey(String cacheKey) {
         if (cacheKey.startsWith("weather:")) {
             return cacheKey.substring(8).replaceAll(":", "/");
         }

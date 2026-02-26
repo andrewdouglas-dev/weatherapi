@@ -1,9 +1,13 @@
 package com.github.utilities;
 
+import java.time.LocalDate;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PathParser {
+    private PathParser() {}
+
     public static String[] parseURI(String path) {
         if (path == null || path.isEmpty()) {
             path = "/";
@@ -36,5 +40,38 @@ public class PathParser {
         Matcher match = zipCodePattern.matcher(zipCode);
 
         return match.matches();
+    }
+
+    public static boolean isValidDate(String date) {
+        try {
+            LocalDate.parse(date);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static Optional<String> extractZipCode(String[] pathSegments) {
+        if (pathSegments.length < 4 || !isValidZipcode(pathSegments[3])) {
+            return Optional.empty();
+        }
+
+        return Optional.of(pathSegments[3]);
+    }
+
+    public static Optional<String> extractStartDate(String[] pathSegments) {
+        if (pathSegments.length < 5 && !isValidDate(pathSegments[4])) {
+            return Optional.empty();
+        }
+
+        return Optional.of(pathSegments[4]);
+    }
+
+    public static Optional<String> extractEndDate(String[] pathSegments) {
+        if (pathSegments.length < 6 && !isValidDate(pathSegments[5])) {
+            return Optional.empty();
+        }
+
+        return Optional.of(pathSegments[5]);
     }
 }
