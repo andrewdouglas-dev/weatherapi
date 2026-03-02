@@ -5,6 +5,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - PORT=${PORT}
       - WEATHER_API_KEY=${WEATHER_API_KEY}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX}
       - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW}
